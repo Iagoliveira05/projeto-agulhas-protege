@@ -1,56 +1,129 @@
-# Welcome to your Expo app 👋
+# 🌊 Agulhas Protege — App Mobile (Android / iOS)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Versão **mobile nativa** do sistema [Agulhas Protege](https://github.com/Pedroantps/projeto-agulhas-protege) de monitoramento e alerta de cheias do Rio Sesmaria (Resende-RJ).
 
-## Get started
+O app foi feito com **React Native + Expo (SDK 58)**, **Expo Router** e **NativeWind** (Tailwind CSS). Ele é gerado como um **APK instalável**, não é o site aberto no navegador do celular.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 1. Como o app se conecta ao sistema principal
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+┌──────────────────────┐        ┌──────────────────────────┐
+│  Site web (React)    │        │  App mobile (este repo)  │
+│  Painel Defesa Civil │        │  Cidadão + operador campo│
+└──────────┬───────────┘        └────────────┬─────────────┘
+           │   HTTP/JSON  /api/v1/*          │
+           └───────────────┬─────────────────┘
+                   ┌───────▼────────┐
+                   │ API FastAPI    │  ← mesma API, sem alteração
+                   │ (backend/)     │
+                   └───────┬────────┘
+                   ┌───────▼────────┐
+                   │ PostgreSQL 16  │  ← mesmo banco de dados
+                   └────────────────┘
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+- O app **usa a mesma API e o mesmo banco** do projeto web. Nenhum dado é mockado: uma ocorrência registrada no celular aparece na hora no Dashboard da Defesa Civil do site, e vice-versa.
+- O **login usa as mesmas credenciais e a mesma autenticação** do site: JWT em cookies httpOnly, com *refresh token rotation*. O cookie jar nativo do Android/iOS guarda os cookies.
+- O contrato de dados (`src/lib/api.ts`) espelha o `frontend/src/services/api.ts` do site. As chaves de cache do React Query e a paleta de cores (`tailwind.config.js`) também foram reaproveitadas.
 
-### Other setup steps
+| Endpoint da API                          | Uso no app                                 |
+|------------------------------------------|--------------------------------------------|
+| `GET  /estacoes/status-atual`            | Aba **Nível** + monitor em segundo plano   |
+| `GET  /leituras/historico`               | Gráfico 24h / 72h / 7 dias                 |
+| `GET  /sesmaria/dashboard-ia`            | Aba **Previsão** (IA +24h/+48h/+72h)       |
+| `GET  /ocorrencias`                      | Lista de ocorrências e badge da aba        |
+| `POST /ocorrencias`                      | Registro em campo com GPS                  |
+| `PATCH /ocorrencias/{id}/status`         | Iniciar / encerrar atendimento             |
+| `POST /auth/login`, `/refresh`, `/logout`| Sessão do operador                         |
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## 2. Escopo: o que faz sentido no celular
 
-## Learn more
+O app **não é uma cópia 1:1** do site. O painel administrativo (edição de cotas) e as tabelas de correlação estatística ficaram só na web, porque são tarefas de escritório. No celular, o foco está em **quem está na rua**:
 
-To learn more about developing your project with Expo, look at the following resources:
+| Funcionalidade | Por que no mobile |
+|---|---|
+| 🔔 **Notificação de mudança de risco em segundo plano** (`expo-background-task` + `expo-notifications`) | O site só avisa quem está com ele aberto. O celular avisa o morador mesmo com o app fechado. |
+| 📍 **Registro de ocorrência com GPS** (`expo-location` + geocodificação reversa) | O operador da Defesa Civil está no local alagado. O endereço é preenchido sozinho. |
+| 📞 **Ligar para 199 / 193** com um toque | Em emergência, a pessoa liga direto do app. |
+| 💬 **Boletim no WhatsApp** e 📤 **compartilhar o nível** (Share nativo) | É o canal que a população realmente usa. |
+| 🗺️ **Abrir ocorrência no mapa** | Navegação até o local do atendimento. |
+| 👆 Gráfico com **gesto de arrastar** para inspecionar leituras, **puxar para atualizar**, **feedback háptico** | Padrões de interação de toque. |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 3. Navegação e UI
 
-## Join the community
+- **Abas inferiores nativas** (`expo-router/native-tabs`): Material 3 no Android e tab bar nativa no iOS. São quatro abas: Nível · Previsão · Ocorrências · Conta. A aba Ocorrências mostra um badge com o número de ocorrências abertas.
+- **Pilha nativa** dentro da aba Ocorrências: lista → detalhes, e "Nova ocorrência" abre como **modal**.
+- Botões com altura mínima de 48dp, *pull-to-refresh*, botão de ação fixo, teclado que não cobre os campos e modo escuro automático.
+- Os textos de orientação de segurança mudam conforme o nível de risco: Normal, Atenção, Alerta ou Emergência.
 
-Join our community of developers creating universal apps.
+## 4. Estrutura
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+src/
+  app/                    # rotas (Expo Router)
+    _layout.tsx           # providers + abas nativas
+    index.tsx             # Nível (portal do cidadão)
+    previsao.tsx          # Previsão IA do Rio Sesmaria
+    conta.tsx             # Login, alertas, servidor da API
+    ocorrencias/          # Stack: lista, [id], nova (modal)
+  components/             # UI (NativeWind) e gráfico SVG
+  hooks/queries.ts        # React Query (mesmas chaves do site)
+  lib/
+    api.ts                # cliente da API FastAPI
+    auth.tsx              # sessão do operador
+    alert-monitor.ts      # tarefa em segundo plano + notificações
+    config.ts             # URL da API (configurável no app)
+    risk.ts               # classificação de risco, cores, orientações
+```
+
+## 5. Como rodar
+
+### 5.1 Subir o backend do projeto web
+
+No repositório web, suba a API normalmente (`docker compose up --build -d` e depois o seed). Para o celular conseguir usar os cookies de login por **HTTP na rede local**, a API precisa rodar com `COOKIE_SECURE=false`. Os navegadores só aceitam cookies `Secure` sem HTTPS quando o endereço é `localhost`; o celular acessa pelo IP da rede, então não aceita.
+
+No `docker-compose.yml` do projeto web, acrescente no serviço `backend → environment`:
+
+```yaml
+COOKIE_SECURE: "false"
+```
+
+Se a API for publicada com **HTTPS**, nada disso é necessário.
+
+### 5.2 Rodar o app
+
+```bash
+npm install
+cp .env.example .env    # ajuste EXPO_PUBLIC_API_URL
+npx expo start
+```
+
+- Emulador Android: `http://10.0.2.2:8000`
+- Celular físico: `http://<IP-do-PC-na-rede>:8000`, com o celular e o PC na mesma rede Wi-Fi
+- O endereço também pode ser trocado em tempo de execução na aba **Conta → Servidor da API**, que tem um botão para testar a conexão via `/health`.
+
+Credenciais do seed do backend:
+
+| Perfil | E-mail | Senha |
+|---|---|---|
+| Operador | `operador@defesacivil.resende.rj.gov.br` | `Operador@2026` |
+| Admin | `admin@defesacivil.resende.rj.gov.br` | `Admin@2026` |
+
+### 5.3 Gerar o APK (entrega)
+
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest build -p android --profile preview
+```
+
+Ao final, o EAS mostra um link/QR code para baixar o `.apk` e instalar no celular. Para gerar localmente, com Android Studio instalado, use `npx expo run:android --variant release`.
+
+## 6. Qualidade
+
+```bash
+npx tsc --noEmit   # typecheck
+npx expo lint      # lint
+npx expo-doctor    # dependências/config
+```
