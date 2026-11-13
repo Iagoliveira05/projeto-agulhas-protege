@@ -106,6 +106,14 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
   );
 }
 
+const SEGMENT_ACTIVE_SHADOW = {
+  elevation: 2,
+  shadowColor: '#000',
+  shadowOpacity: 0.08,
+  shadowRadius: 2,
+  shadowOffset: { width: 0, height: 1 },
+};
+
 interface SegmentedProps<T extends string | number> {
   options: { value: T; label: string }[];
   value: T;
@@ -126,7 +134,10 @@ export function Segmented<T extends string | number>({ options, value, onChange 
               void Haptics.selectionAsync();
               onChange(option.value);
             }}
-            className={`min-h-10 flex-1 items-center justify-center rounded-lg ${active ? 'bg-white shadow-sm dark:bg-slate-600' : ''}`}>
+            // Sombra via `style`: ativar uma classe shadow-* depois do primeiro render faz o
+            // NativeWind v4 "promover" o componente e quebrar com o contexto do Expo Router.
+            style={active ? SEGMENT_ACTIVE_SHADOW : undefined}
+            className={`min-h-10 flex-1 items-center justify-center rounded-lg ${active ? 'bg-white dark:bg-slate-600' : ''}`}>
             <Text className={`text-sm font-semibold ${active ? 'text-brand-dark dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
               {option.label}
             </Text>
