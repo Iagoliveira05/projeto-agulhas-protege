@@ -1,9 +1,9 @@
 import * as Haptics from 'expo-haptics';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Alert, Linking, Text, View } from 'react-native';
 
 import { Button, Card, ErrorState, LoadingState, Screen, SectionTitle, StatRow } from '@/components/ui';
-import { useAtualizarStatusOcorrencia, useOcorrencias } from '@/hooks/queries';
+import { useAtualizarStatusOcorrencia, useExcluirOcorrencia, useOcorrencias } from '@/hooks/queries';
 import type { StatusOcorrencia } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDataHora, STATUS_OCORRENCIA } from '@/lib/risk';
@@ -22,6 +22,7 @@ export default function OcorrenciaDetalheScreen() {
   const { isOperador } = useAuth();
   const { data, isPending, isError, error, refetch } = useOcorrencias();
   const atualizar = useAtualizarStatusOcorrencia();
+  const excluir = useExcluirOcorrencia();
   const ocorrencia = data?.find((o) => o.id === id);
 
   const mudarStatus = (status: StatusOcorrencia) => {
@@ -41,12 +42,34 @@ export default function OcorrenciaDetalheScreen() {
     ]);
   };
 
+  const confirmarExclusao = () => {
+    Alert.alert(
+      'Excluir ocorrência?',
+      'Ela será removida do app e do painel web da Defesa Civil. A exclusão fica registrada na auditoria.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () =>
+            excluir.mutate(id, {
+              onSuccess: () => {
+                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                router.back();
+              },
+              onError: (e) => Alert.alert('Não foi possível excluir', e.message),
+            }),
+        },
+      ],
+    );
+  };
+
   return (
     <Screen withHeader refreshing={false} onRefresh={() => refetch()}>
       <Stack.Screen options={{ title: ocorrencia ? STATUS_OCORRENCIA[ocorrencia.status].label : 'Detalhes' }} />
       {isPending ? <LoadingState /> : null}
       {isError ? <ErrorState error={error} onRetry={() => void refetch()} /> : null}
-      {data && !ocorrencia ? <ErrorState error={new Error('Ocorrência não encontrada.')} /> : null}
+      {data && !ocorrencia && !excluir.isSuccess ? <ErrorState error={new Error('Ocorrência não encontrada.')} /> : null}
 
       {ocorrencia ? (
         <>
@@ -92,6 +115,13 @@ export default function OcorrenciaDetalheScreen() {
                   onPress={() => mudarStatus(acao.status)}
                 />
               ))}
+              <Button
+                label="Excluir ocorrência"
+                icon="🗑️"
+                variant="danger"
+                loading={excluir.isPending}
+                onPress={confirmarExclusao}
+              />
             </View>
           ) : null}
         </>

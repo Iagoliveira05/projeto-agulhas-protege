@@ -156,54 +156,6 @@ export interface LoginResponse {
   mensagem: string;
 }
 
-export interface PrevisaoNivelDia {
-  dia_offset: number;
-  rotulo: string;
-  data_alvo: string;
-  chuva_prevista_mm: string;
-  vazao_funil_esperada_m3s: string;
-  nivel_estimado_metros: string;
-  probabilidade_alerta: number;
-  probabilidade_emergencia: number;
-  classificacao_risco: NivelRisco;
-  confiabilidade_percentual: number;
-}
-
-export interface RecomendacaoFunil {
-  vazao_atual_m3s: string;
-  vazao_maxima_sugerida_m3s: string;
-  tempo_transito_medio: string;
-  situacao_remanso: 'FAVORAVEL' | 'ALERTA_REMANSO' | 'REMANSO_CRITICO';
-  acao_preventiva: string;
-  impacto_estimado_leito_cm: number;
-}
-
-export interface TelemetriaBacia {
-  chuva_sjb_acumulada_12h_mm: string;
-  chuva_sjb_acumulada_24h_mm: string;
-  chuva_sjb_acumulada_48h_mm: string;
-  saturacao_solo_sjb_percent: number;
-  chuva_resende_acumulada_24h_mm: string;
-  vazao_funil_atual_m3s: string;
-}
-
-export interface SesmariaDashboard {
-  estacao_id: string;
-  nome: string;
-  rio: string;
-  municipio: string;
-  nivel_atual_metros: string;
-  classificacao_risco: NivelRisco;
-  data_hora_leitura: string;
-  cota_atencao: string;
-  cota_alerta: string;
-  cota_emergencia: string;
-  telemetria: TelemetriaBacia;
-  previsoes: PrevisaoNivelDia[];
-  recomendacao_funil: RecomendacaoFunil;
-  mensagem_alerta_whatsapp: string;
-}
-
 // ── Endpoints ─────────────────────────────────────────────────────────────
 
 export const fetchStatusAtual = () => request<EstacaoStatus[]>('/estacoes/status-atual');
@@ -227,7 +179,8 @@ export const atualizarStatusOcorrencia = (id: string, status: StatusOcorrencia) 
     body: JSON.stringify({ status }),
   });
 
-export const fetchSesmariaDashboard = () => request<SesmariaDashboard>('/sesmaria/dashboard-ia');
+export const excluirOcorrencia = (id: string) =>
+  request<void>(`/ocorrencias/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 export const loginApi = (data: { email: string; senha: string }) =>
   request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(data) });

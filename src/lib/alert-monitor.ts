@@ -12,8 +12,9 @@ import { AndroidImportance } from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 
-import { fetchStatusAtual, type EstacaoStatus } from '@/lib/api';
+import type { EstacaoStatus } from '@/lib/api';
 import { loadApiUrl } from '@/lib/config';
+import { fetchStatusReal } from '@/lib/nivel-real';
 import { formatMetros, RISK, riskIndex } from '@/lib/risk';
 
 export const ALERT_TASK = 'agulhas-protege-risk-monitor';
@@ -34,7 +35,7 @@ Notifications.setNotificationHandler({
 TaskManager.defineTask(ALERT_TASK, async () => {
   try {
     await loadApiUrl();
-    await syncRiskState(await fetchStatusAtual());
+    await syncRiskState(await fetchStatusReal());
     return BackgroundTask.BackgroundTaskResult.Success;
   } catch {
     return BackgroundTask.BackgroundTaskResult.Failed;

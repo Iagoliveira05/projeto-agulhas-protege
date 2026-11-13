@@ -9,34 +9,59 @@ O app foi feito com **React Native + Expo (SDK 58)**, **Expo Router** e **Native
 ## 1. Como o app se conecta ao sistema principal
 
 ```
-┌──────────────────────┐        ┌──────────────────────────┐
-│  Site web (React)    │        │  App mobile (este repo)  │
-│  Painel Defesa Civil │        │  Cidadão + operador campo│
-└──────────┬───────────┘        └────────────┬─────────────┘
-           │   HTTP/JSON  /api/v1/*          │
-           └───────────────┬─────────────────┘
-                   ┌───────▼────────┐
-                   │ API FastAPI    │  ← mesma API, sem alteração
-                   │ (backend/)     │
-                   └───────┬────────┘
-                   ┌───────▼────────┐
-                   │ PostgreSQL 16  │  ← mesmo banco de dados
-                   └────────────────┘
+┌──────────────────────┐        ┌──────────────────────────────┐
+│  Site web (React)    │        │  App mobile (este repo)      │
+│  Painel Defesa Civil │        │  Cidadão + operador de campo │
+└──────────┬───────────┘        └───┬──────────────┬───────────┘
+           │   /api/v1/*            │ /api/v1/*    │ dados públicos, em tempo real
+           └──────────┬─────────────┘              │
+              ┌───────▼────────┐          ┌────────▼──────────────────┐
+              │ API FastAPI    │          │ CEMADEN – estação Rio     │
+              │ (backend/)     │          │ Sesmarias (nível, chuva,  │
+              └───────┬────────┘          │ câmera) · Open-Meteo      │
+              ┌───────▼────────┐          │ (chuva prevista)          │
+              │ PostgreSQL 16  │          └───────────────────────────┘
+              └────────────────┘
 ```
 
-- O app **usa a mesma API e o mesmo banco** do projeto web. Nenhum dado é mockado: uma ocorrência registrada no celular aparece na hora no Dashboard da Defesa Civil do site, e vice-versa.
-- O **login usa as mesmas credenciais e a mesma autenticação** do site: JWT em cookies httpOnly, com *refresh token rotation*. O cookie jar nativo do Android/iOS guarda os cookies.
-- O contrato de dados (`src/lib/api.ts`) espelha o `frontend/src/services/api.ts` do site. As chaves de cache do React Query e a paleta de cores (`tailwind.config.js`) também foram reaproveitadas.
+### Dados reais e em tempo real
+
+O nível exibido no app é **medido de verdade**, não simulado:
+
+| Dado | Fonte | Atualização |
+|---|---|---|
+| Nível do Rio Sesmaria + histórico de até 4 dias | [CEMADEN](https://mapainterativo.cemaden.gov.br/), estação hidrológica **Rio Sesmarias** (cód. `330420118H`, Resende-RJ), sensor radar na ponte | a cada 10 min a 1 h |
+| Chuva na última hora e em 24h | Pluviômetro da mesma estação do CEMADEN | a cada 10 min |
+| Foto do rio | Câmera da estação do CEMADEN | 1 foto por hora |
+| Chuva prevista (3 dias) para Resende e para a cabeceira em São José do Barreiro-SP | [Open-Meteo](https://open-meteo.com/) | a cada hora |
+
+O app consulta essas fontes a cada 5 minutos com o app aberto, e o monitor em segundo plano consulta a cada 15 minutos para disparar notificações.
+
+### O que vem do sistema principal (mesma API e mesmo banco do site)
+
+- **Estação e cotas de risco** (Atenção / Alerta / Emergência). O administrador altera as cotas no painel web (`/admin`) e o app passa a classificar o nível real com os novos valores, usando a mesma regra de `classificacao_risco.py` do backend.
+- **Ocorrências de campo.** Uma ocorrência registrada no celular aparece na hora no Dashboard da Defesa Civil do site, e vice-versa.
+- **Login** com as mesmas credenciais e a mesma autenticação do site: JWT em cookies httpOnly, com *refresh token rotation*.
 
 | Endpoint da API                          | Uso no app                                 |
 |------------------------------------------|--------------------------------------------|
-| `GET  /estacoes/status-atual`            | Aba **Nível** + monitor em segundo plano   |
-| `GET  /leituras/historico`               | Gráfico 24h / 72h / 7 dias                 |
-| `GET  /sesmaria/dashboard-ia`            | Aba **Previsão** (IA +24h/+48h/+72h)       |
+| `GET  /estacoes/status-atual`            | Estação e cotas de risco                   |
 | `GET  /ocorrencias`                      | Lista de ocorrências e badge da aba        |
 | `POST /ocorrencias`                      | Registro em campo com GPS                  |
 | `PATCH /ocorrencias/{id}/status`         | Iniciar / encerrar atendimento             |
 | `POST /auth/login`, `/refresh`, `/logout`| Sessão do operador                         |
+
+Se a API do projeto estiver fora do ar, o app continua mostrando o nível real com as cotas padrão e avisa isso na tela.
+
+### Previsão
+
+A aba Previsão estima o nível em +24h, +48h e +72h **com dados reais de entrada**: o nível atual e a tendência medidos pelo CEMADEN, a chuva medida pelo pluviômetro e a chuva prevista pelo Open-Meteo para a cabeceira e para Resende. O modelo (`src/lib/previsao.ts`) é um tanque linear simplificado:
+- a chuva da cabeceira pesa 60% e a de Resende 40%;
+- o escoamento aumenta com a saturação do solo das últimas 48h;
+- o rio recua 20% por dia sem chuva;
+- a subida em curso é propagada para o dia seguinte.
+
+É uma estimativa didática e não substitui os comunicados oficiais.
 
 ## 2. Escopo: o que faz sentido no celular
 
@@ -49,6 +74,7 @@ O app **não é uma cópia 1:1** do site. O painel administrativo (edição de c
 | 📞 **Ligar para 199 / 193** com um toque | Em emergência, a pessoa liga direto do app. |
 | 💬 **Boletim no WhatsApp** e 📤 **compartilhar o nível** (Share nativo) | É o canal que a população realmente usa. |
 | 🗺️ **Abrir ocorrência no mapa** | Navegação até o local do atendimento. |
+| 📷 **Foto do rio** a cada hora (câmera do CEMADEN) | O morador vê com os próprios olhos como o rio está, sem ir até a margem. |
 | 👆 Gráfico com **gesto de arrastar** para inspecionar leituras, **puxar para atualizar**, **feedback háptico** | Padrões de interação de toque. |
 
 ## 3. Navegação e UI

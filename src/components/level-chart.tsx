@@ -48,17 +48,20 @@ export function LevelChart({ leituras, cotas }: LevelChartProps) {
   const pick = (event: GestureResponderEvent) => {
     const touchX = event.nativeEvent.locationX - PAD.left;
     const index = Math.round((touchX / plotW) * (leituras.length - 1));
+    if (!Number.isFinite(index)) return;
     setSelected(Math.min(leituras.length - 1, Math.max(0, index)));
   };
 
-  const ponto = selected !== null ? leituras[selected] : leituras[leituras.length - 1];
+  // A série pode encolher (troca de período ou nova leitura) com um índice ainda selecionado.
+  const indice = selected !== null && selected < leituras.length ? selected : null;
+  const ponto = indice !== null ? leituras[indice] : leituras[leituras.length - 1];
 
   return (
     <View>
       <View className="mb-2 flex-row items-baseline justify-between">
         <Text className="text-lg font-bold text-slate-900 dark:text-white">{formatMetros(ponto.nivel_metros)}</Text>
         <Text className="text-xs text-slate-500 dark:text-slate-400">
-          {selected !== null ? formatDataHora(ponto.data_hora) : 'Última leitura · arraste para inspecionar'}
+          {indice !== null ? formatDataHora(ponto.data_hora) : 'Última leitura · arraste para inspecionar'}
         </Text>
       </View>
       <View
@@ -69,9 +72,10 @@ export function LevelChart({ leituras, cotas }: LevelChartProps) {
         onResponderGrant={pick}
         onResponderMove={pick}
         onResponderRelease={() => setSelected(null)}
+        onResponderTerminate={() => setSelected(null)}
         accessibilityLabel={`Gráfico de nível com ${leituras.length} leituras`}>
         {width > 0 ? (
-          <Svg width={width} height={HEIGHT}>
+          <Svg width={width} height={HEIGHT} pointerEvents="none">
             <Defs>
               <LinearGradient id="area" x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor="#0284c7" stopOpacity={0.35} />
@@ -88,10 +92,10 @@ export function LevelChart({ leituras, cotas }: LevelChartProps) {
             ))}
             <Path d={areaPath} fill="url(#area)" />
             <Path d={linePath} stroke="#0284c7" strokeWidth={2.5} fill="none" strokeLinejoin="round" />
-            {selected !== null ? (
+            {indice !== null ? (
               <>
-                <Line x1={x(selected)} x2={x(selected)} y1={PAD.top} y2={PAD.top + plotH} stroke="#64748b" strokeWidth={1} />
-                <Circle cx={x(selected)} cy={y(niveis[selected])} r={5} fill="#0284c7" stroke="#fff" strokeWidth={2} />
+                <Line x1={x(indice)} x2={x(indice)} y1={PAD.top} y2={PAD.top + plotH} stroke="#64748b" strokeWidth={1} />
+                <Circle cx={x(indice)} cy={y(niveis[indice])} r={5} fill="#0284c7" stroke="#fff" strokeWidth={2} />
               </>
             ) : (
               <Circle cx={x(niveis.length - 1)} cy={y(niveis[niveis.length - 1])} r={4.5} fill="#0284c7" />
