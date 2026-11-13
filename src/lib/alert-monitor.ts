@@ -45,18 +45,30 @@ export async function isAlertsEnabled(): Promise<boolean> {
   return (await AsyncStorage.getItem(ENABLED_KEY)) === 'true';
 }
 
-async function ensureChannel() {
-  if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: 'Alertas de cheia',
-    importance: AndroidImportance.HIGH,
-    vibrationPattern: [0, 400, 200, 400],
-    lightColor: '#dc2626',
-  });
+/**
+ * Cria o canal Android dos alertas. Retorna o channelId a usar, ou undefined para cair
+ * no canal padrão: no Expo Go o setNotificationChannelAsync falha internamente
+ * (NullPointerException no gerenciador de canais do Expo Go); no APK funciona normalmente.
+ */
+async function ensureChannel(): Promise<string | undefined> {
+  if (Platform.OS !== 'android') return undefined;
+  try {
+    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+      name: 'Alertas de cheia',
+      importance: AndroidImportance.HIGH,
+      vibrationPattern: [0, 400, 200, 400],
+      lightColor: '#dc2626',
+    });
+    return CHANNEL_ID;
+  } catch (error) {
+    console.warn('Canal de notificação indisponível, usando o canal padrão.', error);
+    return undefined;
+  }
 }
 
 /** Pede permissão de notificação e registra a tarefa periódica. Retorna false se negado. */
 export async function enableAlerts(): Promise<boolean> {
+  // No Android 13+ o canal precisa existir antes do pedido de permissão para o diálogo aparecer.
   await ensureChannel();
   const { granted } = await Notifications.requestPermissionsAsync();
   if (!granted) return false;
@@ -94,7 +106,7 @@ export async function syncRiskState(estacoes: EstacaoStatus[]) {
     if (!enabled || !anterior || anterior === atual) continue;
 
     const subiu = riskIndex(atual) > riskIndex(anterior);
-    await ensureChannel();
+    const channelId = await ensureChannel();
     await Notifications.scheduleNotificationAsync({
       content: {
         title: subiu
@@ -104,7 +116,7 @@ export async function syncRiskState(estacoes: EstacaoStatus[]) {
         data: { estacaoId: estacao.estacao_id },
         color: RISK[atual].color,
       },
-      trigger: Platform.OS === 'android' ? { channelId: CHANNEL_ID } : null,
+      trigger: channelId ? { channelId } : null,
     });
   }
 

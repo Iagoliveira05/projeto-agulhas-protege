@@ -48,14 +48,19 @@ export default function ContaScreen() {
   };
 
   const alternarAlertas = async (ativar: boolean) => {
-    if (!ativar) {
-      await disableAlerts();
-      setAlertas(false);
-      return;
+    try {
+      if (!ativar) {
+        await disableAlerts();
+        setAlertas(false);
+        return;
+      }
+      const ok = await enableAlerts();
+      setAlertas(ok);
+      if (!ok) Alert.alert('Notificações bloqueadas', 'Ative as notificações do Agulhas Protege nas configurações do celular.');
+    } catch (error) {
+      setAlertas(await isAlertsEnabled());
+      Alert.alert('Não foi possível alterar os alertas', error instanceof Error ? error.message : 'Tente novamente.');
     }
-    const ok = await enableAlerts();
-    setAlertas(ok);
-    if (!ok) Alert.alert('Notificações bloqueadas', 'Ative as notificações do Agulhas Protege nas configurações do celular.');
   };
 
   const salvarServidor = async () => {

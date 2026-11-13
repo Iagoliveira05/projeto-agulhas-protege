@@ -25,7 +25,9 @@ export default function NivelScreen() {
 
   // Mantém o estado de risco salvo em sincronia e avisa se mudou enquanto o app está aberto.
   useEffect(() => {
-    if (status.data) void syncRiskState(status.data);
+    if (status.data) {
+      syncRiskState(status.data).catch((error) => console.warn('Falha ao sincronizar alertas de risco.', error));
+    }
   }, [status.data]);
 
   const refresh = () => {
