@@ -11,7 +11,7 @@ export type NivelRisco = 'NORMAL' | 'ATENCAO' | 'ALERTA' | 'EMERGENCIA';
 export type StatusOcorrencia = 'ABERTA' | 'EM_ANDAMENTO' | 'ENCERRADA';
 export type PerfilUsuario = 'ADMINISTRADOR' | 'OPERADOR_DEFESA_CIVIL';
 
-const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 8_000;
 
 export class ApiError extends Error {
   constructor(

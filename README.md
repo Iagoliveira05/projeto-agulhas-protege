@@ -92,6 +92,15 @@ COOKIE_SECURE: "false"
 
 Se a API for publicada com **HTTPS**, nada disso é necessário.
 
+**Windows sem Docker:** existe um ambiente local já configurado em `C:\repos\React\agulhas-protege-web`. Ele usa um PostgreSQL 16 embutido (pacote `pgserver`), um `.env` com `COOKIE_SECURE=false` e um launcher compatível com o event loop do Windows. Para subir tudo:
+
+```powershell
+cd C:\repos\React\agulhas-protege-web
+.\iniciar-backend.ps1
+```
+
+Deixe essa janela aberta enquanto usa o app.
+
 ### 5.2 Rodar o app
 
 ```bash
